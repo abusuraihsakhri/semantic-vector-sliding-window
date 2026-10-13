@@ -2,9 +2,13 @@
 FastAPI REST API Server for Semantic Vector Sliding Window.
 """
 from typing import Dict, Any, List
-from fastapi import FastAPI, HTTPException
+import os
+import hmac
+from fastapi import FastAPI, HTTPException, Header
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from .base import AuditLogger, PHIGuard
+from .base import AuditLogger, PHIGuard, SecurityException
+from .metrics import GLOBAL_METRICS
 from .models import SystemTaskPayload, ConsensusDossier
 from .supervisor import SystemSupervisor
 
@@ -28,16 +32,15 @@ def health():
 
 @app.get("/metrics")
 def metrics():
-    return {
-        "dossiers_processed_total": len(supervisor.dossier_registry),
-        "audit_blocks_total": len(AuditLogger.get_trail()),
-        "system_status": "NOMINAL_OPTIMAL"
-    }
+    return PlainTextResponse(GLOBAL_METRICS.export_prometheus_text(), media_type="text/plain; version=0.0.4")
 
 
 @app.post("/api/audit")
 def api_audit(payload: SystemTaskPayload):
-    dossier = supervisor.process_task(payload)
+    try:
+        dossier = supervisor.process_task(payload)
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Sensitive identifiers are not permitted in this endpoint")
     return dossier.to_dict()
 
 
@@ -46,10 +49,13 @@ def api_chat(req: ChatRequest):
     try:
         ans = supervisor.query_supervisory_chat(req.query)
         return {"response": ans}
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except SecurityException:
+        raise HTTPException(status_code=422, detail="Sensitive identifiers are not permitted in this endpoint")
 
 
 @app.get("/api/audit/logs")
-def api_audit_logs():
+def api_audit_logs(x_audit_token: str = Header(default="")):
+    expected = os.getenv("AUDIT_ACCESS_TOKEN")
+    if not expected or not hmac.compare_digest(x_audit_token, expected):
+        raise HTTPException(status_code=403, detail="Audit log access is disabled or unauthorized")
     return {"audit_trail": AuditLogger.get_trail(), "verified": AuditLogger.verify_integrity()}
