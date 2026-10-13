@@ -33,3 +33,12 @@ def test_api_rejects_recognized_identifiers_without_leaking_patterns():
     })
     assert resp.status_code == 422
     assert "pattern" not in resp.text.lower()
+
+
+def test_api_rejects_nonfinite_metrics():
+    client = TestClient(app)
+    response = client.post("/api/audit", json={
+        "task_id": "FINITE-TEST", "target_identifier": "KEY-TEST",
+        "primary_metric": "NaN",
+    })
+    assert response.status_code == 422
