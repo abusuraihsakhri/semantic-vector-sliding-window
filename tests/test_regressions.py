@@ -62,3 +62,28 @@ def test_overlap_rejects_negative_and_invalid_parameters():
         OverlapSmoother(blend_function="other")
     with pytest.raises(ValueError):
         OverlapSmoother().blend_windows([1], [2], overlap_size=-1)
+
+
+def test_csv_boolean_normalization():
+    from cli import parse_csv_bool as enterprise_parser
+    from vector_window.cli import parse_csv_bool as window_parser
+    for parser in (enterprise_parser, window_parser):
+        assert parser("False") is False
+        assert parser("0") is False
+        assert parser("true") is True
+        assert parser("YES") is True
+        with pytest.raises(ValueError):
+            parser("unknown")
+
+
+def test_batch_false_flag_does_not_trigger_critical(tmp_path):
+    from cli import main
+    source = tmp_path / "input.csv"
+    dest = tmp_path / "output.csv"
+    source.write_text(
+        "task_id,target_identifier,primary_metric,secondary_metric,is_critical_flag,status_descriptor\n"
+        "TEST-1,KEY-1,1.0,1.0,False,NOMINAL\n",
+        encoding="utf-8",
+    )
+    assert main(["batch", "-i", str(source), "-o", str(dest)]) == 0
+    assert "ROUTINE" in dest.read_text(encoding="utf-8")
