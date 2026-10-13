@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Semantic Vector Sliding Window API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
+    "description": "Demonstration-only synthetic threshold audit API. No clinical validation or remote LLM integration.",
     "version": "3.0.0-ENTERPRISE",
     "contact": {
       "name": "Dr. Abu Suraih Sakhri",
@@ -22,10 +22,17 @@
     },
     "/metrics": {
       "get": {
-        "summary": "Prometheus operational metrics",
+        "summary": "Export Prometheus-formatted process-local counters and latency",
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "Prometheus exposition text",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -76,7 +83,7 @@
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
+        "summary": "Deterministic mock supervisor response (not a remote LLM)",
         "requestBody": {
           "content": {
             "application/json": {
@@ -103,12 +110,26 @@
     },
     "/api/audit/logs": {
       "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
+        "summary": "Retrieve process-local signed log metadata with access token",
         "responses": {
           "200": {
             "description": "Cryptographic audit trail"
+          },
+          "403": {
+            "description": "Audit access disabled or unauthorized"
           }
-        }
+        },
+        "parameters": [
+          {
+            "name": "x-audit-token",
+            "in": "header",
+            "required": false,
+            "description": "Must match the server's AUDIT_ACCESS_TOKEN environment variable",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
       }
     }
   }
