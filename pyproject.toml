@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=69.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -13,11 +13,20 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Topic :: Security/Cryptography",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-requires-python = ">=3.9"
-dependencies = []
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2,<3"]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.100", "uvicorn>=0.23"]
+test = ["pytest>=8"]
+
+[tool.setuptools]
+py-modules = ["cli", "enrichment", "simulator", "vector_window_app"]
+
+[tool.setuptools.packages.find]
+include = ["agents", "vector_window"]
 
 [project.scripts]
 semantic-vector-sliding-window = "vector_window.cli:main"
