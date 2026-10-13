@@ -23,13 +23,19 @@ class OverlapSmoother:
     """Handles weighted blending at window overlap zones."""
 
     def __init__(self, overlap_fraction: float = 0.2, blend_function: str = "linear"):
+        if not math.isfinite(overlap_fraction) or not 0.0 <= overlap_fraction <= 1.0:
+            raise ValueError("overlap_fraction must be finite and between 0 and 1")
+        if blend_function not in {"linear", "cosine", "sigmoid"}:
+            raise ValueError("blend_function must be linear, cosine, or sigmoid")
         self.overlap_fraction = overlap_fraction
         self.blend_function = blend_function
         self._blend_log: List[Dict[str, Any]] = []
 
     def compute_overlap_size(self, window_size: int) -> int:
         """Compute overlap size based on window size and configured fraction."""
-        return max(1, int(window_size * self.overlap_fraction))
+        if window_size < 0:
+            raise ValueError("window_size cannot be negative")
+        return min(window_size, max(0, int(window_size * self.overlap_fraction)))
 
     def compute_blend_weights(self, overlap_size: int) -> List[float]:
         """Compute blending weights for the overlap region."""
@@ -58,8 +64,27 @@ class OverlapSmoother:
         if overlap_size is None:
             overlap_size = self.compute_overlap_size(min(len(window_a), len(window_b)))
 
+        if overlap_size < 0:
+            raise ValueError("overlap_size cannot be negative")
         overlap_size = min(overlap_size, len(window_a), len(window_b))
         weights = self.compute_blend_weights(overlap_size)
+        if overlap_size == 0:
+            region = BlendRegion(
+                window_a_id=f"window_{id(window_a)}",
+                window_b_id=f"window_{id(window_b)}",
+                overlap_start=len(window_a),
+                overlap_end=len(window_a),
+                overlap_size=0,
+                blend_weights=[],
+            )
+            result = list(window_a) + list(window_b)
+            self._blend_log.append({
+                "overlap_size": 0,
+                "blend_function": self.blend_function,
+                "result_size": len(result),
+                "timestamp": time.time(),
+            })
+            return result, region
 
         # Extract overlap zones
         zone_a = window_a[-overlap_size:]
@@ -102,7 +127,7 @@ class OverlapSmoother:
         if not windows:
             return []
         if len(windows) == 1:
-            return windows[0]
+            return list(windows[0])
 
         result = windows[0]
         for i in range(1, len(windows)):

@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   semantic-vector-sliding-window:
     build: .
-    container_name: semantic-vector-sliding-window
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - AUDIT_SECRET_KEY=semantic-vector-sliding-window-prod-audit-key-2026
+      - AUDIT_SECRET_KEY=${AUDIT_SECRET_KEY:?Set a strong AUDIT_SECRET_KEY before starting the container}
       - MODEL_PROVIDER=mock
+      - AUDIT_ACCESS_TOKEN=${AUDIT_ACCESS_TOKEN:-}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

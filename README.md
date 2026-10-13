@@ -1,99 +1,83 @@
 # Semantic Vector Sliding Window
 
-> **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+A browser-based text-window utility and a Python package for sliding-window and boundary experiments. The browser tool is deterministic and runs locally: it does **not** call a remote model or API.
 
-<div align="center">
+## Browser application
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
-
-</div>
-
----
-
-## 📖 What It Does
-
-**Semantic Vector Sliding Window** is an advanced analytical and computational platform implementing Sentence-boundary cosine drop chunking & dynamic context attention allocation.
-
----
-
-## ⚙️ Key Capabilities & Algorithmic Modules
-
-- **Deterministic Calculation Engine**: Strict compliance with standard reference formulations and thresholds.
-- **Risk & Urgency Classification**: Multi-tier categorization with automated clinical/operational action recommendations.
-- **Validation & Guardrails**: Rigorous input bounds checking and anomaly detection.
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### 1. Guided Interactive Mode
-```bash
-python cli.py
-```
-
-### 2. Direct Parameterized Evaluation
-```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
-```
-
-### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
-
-### Input Data Schema
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `task_id` | Parameter / observation metric | Required |
-| `target_identifier` | Parameter / observation metric | Required |
-| `primary_metric` | Parameter / observation metric | Required |
-| `secondary_metric` | Parameter / observation metric | Required |
-| `is_critical_flag` | Parameter / observation metric | Required |
-| `status_descriptor` | Parameter / observation metric | Required |
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
----
-
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+The standalone app is in [web/index.html](web/index.html). Run it locally with:
 
 ```bash
-pytest -v
+python -m http.server 8080 --directory web
 ```
 
-Execute high-throughput batch simulation benchmarks:
+Open `http://localhost:8080`, then:
+
+1. Paste text or load a local `.txt`/`.md` file (maximum 1 MB).
+2. Adjust the adjacent-similarity threshold, minimum text units per segment, and overlap units.
+3. Select **Analyze windows** to inspect segments, or **Export JSON** to download their boundaries and content.
+
+By default the browser compares adjacent sentence/line units using **word-set Jaccard similarity**; this is a lexical heuristic, not a semantic embedding model. To use cosine similarity, provide JSON containing one equal-length numeric embedding vector per detected unit. Boundaries are chosen where adjacent similarity falls below the selected threshold, subject to the segment-length constraint. Overlap repeats preceding units into subsequent windows.
+
+The browser version uses native JavaScript rather than downloading a Python runtime. It requires a modern browser with Unicode regular expressions and lookbehind support. All browser input stays in the tab unless you explicitly export it. There is no upload endpoint, analytics, or browser storage in the web app.
+
+A GitHub Pages deployment workflow publishes the `web/` directory from `master` when GitHub Pages is enabled. Deployment is not considered live until the published URL is verified.
+
+## Python package
+
+Python 3.10 or later is required. Install for development:
 
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+python -m pip install -e ".[server,test]"
+python -m pytest -q
 ```
 
----
+The importable `vector_window` package includes:
 
-## 🐳 Container Deployment
+- `semantic_boundaries.SemanticBoundaryDetector`: consecutive-embedding cosine similarity, or lexical similarity when embeddings are absent; segmentation with a minimum size.
+- `overlap_smoothing.OverlapSmoother`: numeric overlap blending (linear, cosine, sigmoid), or discrete choice for nonnumeric elements.
+- `auto_tuning.WindowAutoTuner`: heuristic query-complexity-based window sizing.
+- `vector_window.cli`: an independent parameter-audit and CSV demonstration interface.
+
+Example:
+
+```python
+from vector_window.semantic_boundaries import SemanticBoundaryDetector
+
+units = ["A first topic.", "Related information.", "A distinct subject."]
+detector = SemanticBoundaryDetector(similarity_threshold=0.4, min_segment_size=1)
+segments = detector.split_at_boundaries(units)
+print(segments)
+```
+
+The installed command `semantic-vector-sliding-window` exposes the `vector_window.cli` demo:
 
 ```bash
-docker build -t semantic-vector-sliding-window .
-docker run -p 8000:8000 semantic-vector-sliding-window
+semantic-vector-sliding-window audit --task-id EXAMPLE --primary 12 --secondary 3 --status NOMINAL
+semantic-vector-sliding-window batch --input sample.csv --output results.csv
 ```
+
+## Legacy demonstration API
+
+The top-level `cli.py` and `agents/` code form a **separate synthetic threshold-audit demo**, not the browser chunking engine. They do not calculate clinically validated risk, perform remote LLM reasoning, or provide an actual patient safety system. Thresholds and labels in that demo are illustrative and should not be used for clinical decisions.
+
+```bash
+python cli.py audit
+python cli.py batch -i sample.csv -o results.csv
+python cli.py serve
+```
+
+The FastAPI server exposes `/health`, `/metrics` (Prometheus text), `/api/audit`, `/api/chat` (deterministic mock), and `/api/audit/logs`. The audit log endpoint returns HTTP 403 unless `AUDIT_ACCESS_TOKEN` is configured and supplied as the `X-Audit-Token` header. The identifier-pattern guard is **not** comprehensive PHI detection or HIPAA de-identification.
+
+An audit signing key is generated in memory if `AUDIT_SECRET_KEY` is absent. Set a sufficiently strong private `AUDIT_SECRET_KEY` for deployments requiring a stable audit key across process restarts. HMAC chain validation detects modifications to stored entries, but an in-memory log is not durable storage or an externally anchored audit ledger.
+
+For Docker Compose, define `AUDIT_SECRET_KEY` in your shell or a private local `.env` file, then run `docker compose up --build`. The example binds the API to `127.0.0.1:8000` only. Set `AUDIT_ACCESS_TOKEN` separately if log retrieval is needed. Never commit actual signing keys or access tokens.
+
+## Development and security
+
+CI checks the package on Python 3.10–3.12, runs the test suite, checks package dependencies, and validates the browser JavaScript syntax with Node.js. Neither the package nor the browser app requires an external LLM or paid service.
+
+The browser processes local content in the user's browser; the optional FastAPI service processes submitted data on the server and keeps its demonstration audit records in process memory. Do not submit identifiable patient data to the demonstration API.
+
+## License
+
+[MIT](LICENSE).

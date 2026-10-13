@@ -10,6 +10,18 @@ from .agents import VectorWindowCoordinator
 
 coordinator = VectorWindowCoordinator()
 
+def parse_csv_bool(value):
+    """Interpret explicit CSV booleans without treating non-empty 'False' as true."""
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "1", "yes", "y", "on"}:
+        return True
+    if normalized in {"false", "0", "no", "n", "off", ""}:
+        return False
+    raise ValueError("Invalid boolean value: " + repr(value))
+
+
 
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="semantic-vector-sliding-window", description="VectorWindow: Dynamic Semantic Chunking & Cosine Proximity Attention Agent")
@@ -74,7 +86,7 @@ def main(argv=None):
             fieldnames = list(reader.fieldnames or [])
             rows = list(reader)
 
-        out_fields = fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]
+        out_fields = list(dict.fromkeys(fieldnames + ["overall_status", "total_alerts", "critical_count", "consensus_summary"]))
         out_rows = []
         for r in rows:
             payload = FrontierPayload(
@@ -83,7 +95,7 @@ def main(argv=None):
                 primary_metric=float(r.get("primary_metric", 15.0)),
                 secondary_metric=float(r.get("secondary_metric", 5.0)),
                 status_descriptor=r.get("status_descriptor", "NOMINAL"),
-                is_critical_flag=bool(r.get("is_critical_flag", False)),
+                is_critical_flag=parse_csv_bool(r.get("is_critical_flag", False)),
             )
             dossier = coordinator.process(payload)
             row_dict = dict(r)

@@ -44,6 +44,12 @@ class SemanticBoundaryDetector:
     def __init__(self, similarity_threshold: float = 0.45,
                  drift_window: int = 3,
                  min_segment_size: int = 2):
+        if not math.isfinite(similarity_threshold) or not -1.0 <= similarity_threshold <= 1.0:
+            raise ValueError("similarity_threshold must be finite and between -1 and 1")
+        if not isinstance(drift_window, int) or drift_window < 1:
+            raise ValueError("drift_window must be a positive integer")
+        if not isinstance(min_segment_size, int) or min_segment_size < 1:
+            raise ValueError("min_segment_size must be a positive integer")
         self.similarity_threshold = similarity_threshold
         self.drift_window = drift_window
         self.min_segment_size = min_segment_size
@@ -53,6 +59,16 @@ class SemanticBoundaryDetector:
                          embeddings: Optional[List[List[float]]] = None) -> BoundaryDetectionResult:
         """Detect semantic boundaries in a sequence of text chunks."""
         start_time = time.time()
+
+        if embeddings is not None:
+            if len(embeddings) != len(chunks):
+                raise ValueError("embeddings must have exactly one vector per chunk")
+            if embeddings:
+                dimension = len(embeddings[0])
+                if dimension == 0 or any(len(v) != dimension for v in embeddings):
+                    raise ValueError("embeddings must be non-empty vectors of equal dimension")
+                if any(not math.isfinite(x) for v in embeddings for x in v):
+                    raise ValueError("embeddings must contain only finite numbers")
 
         if len(chunks) < 2:
             return BoundaryDetectionResult(
@@ -170,17 +186,24 @@ class SemanticBoundaryDetector:
 
     def _enforce_min_segment(self, boundaries: List[SemanticBoundary],
                             total_chunks: int) -> List[SemanticBoundary]:
-        """Remove boundaries that would create segments smaller than min_segment_size."""
-        if not boundaries:
-            return boundaries
-        filtered = [boundaries[0]]
-        for b in boundaries[1:]:
-            if b.position - filtered[-1].position >= self.min_segment_size:
-                filtered.append(b)
-        return filtered
+        """Ensure all segments, including first and last, meet the minimum."""
+        accepted = []
+        previous = 0
+        for boundary in boundaries:
+            if boundary.position - previous < self.min_segment_size:
+                continue
+            if total_chunks - boundary.position < self.min_segment_size:
+                continue
+            accepted.append(boundary)
+            previous = boundary.position
+        return accepted
 
     @staticmethod
     def _cosine_similarity(a: List[float], b: List[float]) -> float:
+        if len(a) != len(b) or not a:
+            raise ValueError("cosine vectors must have the same non-zero dimension")
+        if any(not math.isfinite(x) for x in a + b):
+            raise ValueError("cosine vectors must contain finite numbers")
         dot = sum(x * y for x, y in zip(a, b))
         norm_a = math.sqrt(sum(x * x for x in a))
         norm_b = math.sqrt(sum(x * x for x in b))
