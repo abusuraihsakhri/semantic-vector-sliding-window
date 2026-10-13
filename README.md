@@ -70,7 +70,7 @@ The FastAPI server exposes `/health`, `/metrics` (Prometheus text), `/api/audit`
 
 An audit signing key is generated in memory if `AUDIT_SECRET_KEY` is absent. Set a sufficiently strong private `AUDIT_SECRET_KEY` for deployments requiring a stable audit key across process restarts. HMAC chain validation detects modifications to stored entries, but an in-memory log is not durable storage or an externally anchored audit ledger.
 
-For Docker Compose, define `AUDIT_SECRET_KEY` in your shell or a private local `.env` file, then run `docker compose up --build`. Never commit actual signing keys or access tokens.
+For Docker Compose, define `AUDIT_SECRET_KEY` in your shell or a private local `.env` file, then run `docker compose up --build`. The example binds the API to `127.0.0.1:8000` only. Set `AUDIT_ACCESS_TOKEN` separately if log retrieval is needed. Never commit actual signing keys or access tokens.
 
 ## Development and security
 
