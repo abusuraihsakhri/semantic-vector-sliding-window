@@ -87,3 +87,11 @@ def test_batch_false_flag_does_not_trigger_critical(tmp_path):
     )
     assert main(["batch", "-i", str(source), "-o", str(dest)]) == 0
     assert "ROUTINE" in dest.read_text(encoding="utf-8")
+
+
+def test_unimplemented_model_provider_is_rejected():
+    from agents.llm_factory import LLMFactory
+    with pytest.raises(ValueError, match="Unsupported"):
+        LLMFactory.create("openai")
+    response = LLMFactory.create("mock").invoke("What is the status?")
+    assert "No model inference" in response
